@@ -1,11 +1,189 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  ChefHat, 
+  Users, 
+  DollarSign, 
+  Package, 
+  Clock, 
+  TrendingUp,
+  AlertCircle,
+  CheckCircle,
+  Coffee,
+  UtensilsCrossed,
+  ShoppingCart,
+  Bell
+} from 'lucide-react';
+import { OrderManagement } from '@/components/OrderManagement';
+import { TableControl } from '@/components/TableControl';
+import { StockManagement } from '@/components/StockManagement';
+import { FinancialAnalytics } from '@/components/FinancialAnalytics';
+import { NotificationCenter } from '@/components/NotificationCenter';
 
 const Index = () => {
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Mock data for dashboard metrics
+  const todayMetrics = {
+    revenue: 3247.50,
+    orders: 87,
+    avgTicket: 37.32,
+    occupancy: 78
+  };
+
+  const activeNotifications = 5;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 p-4">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              🍽️ AI Restaurant Manager
+            </h1>
+            <p className="text-gray-600">
+              {currentTime.toLocaleDateString('pt-BR', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })} - {currentTime.toLocaleTimeString('pt-BR')}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" className="relative">
+              <Bell className="h-4 w-4 mr-2" />
+              Notificações
+              {activeNotifications > 0 && (
+                <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center bg-red-500">
+                  {activeNotifications}
+                </Badge>
+              )}
+            </Button>
+            <Button className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Relatório Diário
+            </Button>
+          </div>
+        </div>
+
+        {/* Quick Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-medium flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Faturamento Hoje
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold mb-1">
+                R$ {todayMetrics.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-green-100 text-sm">+12% vs ontem</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-medium flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5" />
+                Pedidos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold mb-1">{todayMetrics.orders}</div>
+              <p className="text-blue-100 text-sm">8 em andamento</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-medium flex items-center gap-2">
+                <UtensilsCrossed className="h-5 w-5" />
+                Ticket Médio
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold mb-1">
+                R$ {todayMetrics.avgTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-purple-100 text-sm">Meta: R$ 35,00</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-orange-500 to-red-500 text-white border-0">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-medium flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Ocupação
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold mb-1">{todayMetrics.occupancy}%</div>
+              <p className="text-orange-100 text-sm">14/18 mesas ocupadas</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Management Tabs */}
+        <Tabs defaultValue="orders" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 bg-white shadow-lg">
+            <TabsTrigger value="orders" className="flex items-center gap-2">
+              <ChefHat className="h-4 w-4" />
+              Pedidos
+            </TabsTrigger>
+            <TabsTrigger value="tables" className="flex items-center gap-2">
+              <Coffee className="h-4 w-4" />
+              Mesas
+            </TabsTrigger>
+            <TabsTrigger value="stock" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Estoque
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Financeiro
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              Alertas
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="orders">
+            <OrderManagement />
+          </TabsContent>
+
+          <TabsContent value="tables">
+            <TableControl />
+          </TabsContent>
+
+          <TabsContent value="stock">
+            <StockManagement />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <FinancialAnalytics />
+          </TabsContent>
+
+          <TabsContent value="notifications">
+            <NotificationCenter />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
