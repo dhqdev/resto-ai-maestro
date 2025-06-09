@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,16 +15,23 @@ import {
   Coffee,
   UtensilsCrossed,
   ShoppingCart,
-  Bell
+  Bell,
+  UserCog,
+  Zap,
+  Menu as MenuIcon
 } from 'lucide-react';
 import { OrderManagement } from '@/components/OrderManagement';
 import { TableControl } from '@/components/TableControl';
 import { StockManagement } from '@/components/StockManagement';
 import { FinancialAnalytics } from '@/components/FinancialAnalytics';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { UserManagement } from '@/components/UserManagement';
+import { IntegrationsPanel } from '@/components/IntegrationsPanel';
+import { MenuManagement } from '@/components/MenuManagement';
 
 const Index = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [activeTab, setActiveTab] = useState('orders');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -64,7 +70,11 @@ const Index = () => {
             </p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" className="relative">
+            <Button 
+              variant="outline" 
+              className="relative"
+              onClick={() => setActiveTab('notifications')}
+            >
               <Bell className="h-4 w-4 mr-2" />
               Notificações
               {activeNotifications > 0 && (
@@ -73,7 +83,10 @@ const Index = () => {
                 </Badge>
               )}
             </Button>
-            <Button className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
+            <Button 
+              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+              onClick={() => setActiveTab('analytics')}
+            >
               <TrendingUp className="h-4 w-4 mr-2" />
               Relatório Diário
             </Button>
@@ -82,7 +95,10 @@ const Index = () => {
 
         {/* Quick Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
+          <Card 
+            className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => setActiveTab('analytics')}
+          >
             <CardHeader className="pb-3">
               <CardTitle className="text-lg font-medium flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
@@ -97,7 +113,10 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
+          <Card 
+            className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => setActiveTab('orders')}
+          >
             <CardHeader className="pb-3">
               <CardTitle className="text-lg font-medium flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5" />
@@ -110,7 +129,10 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
+          <Card 
+            className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => setActiveTab('analytics')}
+          >
             <CardHeader className="pb-3">
               <CardTitle className="text-lg font-medium flex items-center gap-2">
                 <UtensilsCrossed className="h-5 w-5" />
@@ -125,7 +147,10 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-orange-500 to-red-500 text-white border-0">
+          <Card 
+            className="bg-gradient-to-br from-orange-500 to-red-500 text-white border-0 cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => setActiveTab('tables')}
+          >
             <CardHeader className="pb-3">
               <CardTitle className="text-lg font-medium flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -140,27 +165,39 @@ const Index = () => {
         </div>
 
         {/* Main Management Tabs */}
-        <Tabs defaultValue="orders" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 bg-white shadow-lg">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 bg-white shadow-lg">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <ChefHat className="h-4 w-4" />
-              Pedidos
+              <span className="hidden sm:inline">Pedidos</span>
             </TabsTrigger>
             <TabsTrigger value="tables" className="flex items-center gap-2">
               <Coffee className="h-4 w-4" />
-              Mesas
+              <span className="hidden sm:inline">Mesas</span>
             </TabsTrigger>
             <TabsTrigger value="stock" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
-              Estoque
+              <span className="hidden sm:inline">Estoque</span>
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Financeiro
+              <span className="hidden sm:inline">Financeiro</span>
+            </TabsTrigger>
+            <TabsTrigger value="menu" className="flex items-center gap-2">
+              <MenuIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Cardápio</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <UserCog className="h-4 w-4" />
+              <span className="hidden sm:inline">Usuários</span>
+            </TabsTrigger>
+            <TabsTrigger value="integrations" className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              <span className="hidden sm:inline">Integrações</span>
             </TabsTrigger>
             <TabsTrigger value="notifications" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
-              Alertas
+              <span className="hidden sm:inline">Alertas</span>
             </TabsTrigger>
           </TabsList>
 
@@ -178,6 +215,18 @@ const Index = () => {
 
           <TabsContent value="analytics">
             <FinancialAnalytics />
+          </TabsContent>
+
+          <TabsContent value="menu">
+            <MenuManagement />
+          </TabsContent>
+
+          <TabsContent value="users">
+            <UserManagement />
+          </TabsContent>
+
+          <TabsContent value="integrations">
+            <IntegrationsPanel />
           </TabsContent>
 
           <TabsContent value="notifications">
