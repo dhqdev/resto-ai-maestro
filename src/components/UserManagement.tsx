@@ -353,7 +353,7 @@ export const UserManagement = () => {
                 <p className="text-gray-600 mb-2">Permissões:</p>
                 <div className="flex flex-wrap gap-1">
                   {user.permissions.includes('all') ? (
-                    <Badge variant="outline" className="text-xs">Todas</Badge>
+                    <Badge variant="outline\" className="text-xs">Todas</Badge>
                   ) : (
                     user.permissions.map(permission => (
                       <Badge key={permission} variant="outline" className="text-xs">
