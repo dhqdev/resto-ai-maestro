@@ -1,8 +1,8 @@
 /*
-  # Complete Restaurant Management System Database Setup
+  # Complete Restaurant Management System Schema
 
   1. New Tables
-    - `profiles` - User profiles linked to auth.users
+    - `profiles` - User profiles with roles and permissions
     - `tables` - Restaurant tables management
     - `categories` - Menu categories
     - `menu_items` - Menu items with options
@@ -14,39 +14,61 @@
 
   2. Security
     - Enable RLS on all tables
-    - Create comprehensive policies for role-based access
-    - Secure triggers and functions
+    - Add comprehensive policies for each role
+    - Secure access based on user permissions
 
-  3. Initial Data
-    - Sample categories, tables, menu items, and stock
-    - Proper conflict handling
+  3. Functions and Triggers
+    - Auto-update timestamps
+    - Handle new user registration
+    - Create profiles automatically
 */
 
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Drop existing triggers to avoid conflicts
-DO $$
+-- Drop existing policies if they exist to avoid conflicts
+DO $$ 
 BEGIN
-    DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
-    DROP TRIGGER IF EXISTS update_tables_updated_at ON tables;
-    DROP TRIGGER IF EXISTS update_menu_items_updated_at ON menu_items;
-    DROP TRIGGER IF EXISTS update_orders_updated_at ON orders;
-    DROP TRIGGER IF EXISTS update_stock_items_updated_at ON stock_items;
-    DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+  -- Drop existing policies for profiles
+  DROP POLICY IF EXISTS "Users can view all profiles" ON profiles;
+  DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+  DROP POLICY IF EXISTS "Masters and admins can manage profiles" ON profiles;
+  
+  -- Drop existing policies for tables
+  DROP POLICY IF EXISTS "All authenticated users can view tables" ON tables;
+  DROP POLICY IF EXISTS "Staff can manage tables" ON tables;
+  
+  -- Drop existing policies for categories
+  DROP POLICY IF EXISTS "All authenticated users can view categories" ON categories;
+  DROP POLICY IF EXISTS "Managers can manage categories" ON categories;
+  
+  -- Drop existing policies for menu_items
+  DROP POLICY IF EXISTS "All authenticated users can view menu items" ON menu_items;
+  DROP POLICY IF EXISTS "Managers can manage menu items" ON menu_items;
+  
+  -- Drop existing policies for orders
+  DROP POLICY IF EXISTS "All authenticated users can view orders" ON orders;
+  DROP POLICY IF EXISTS "Staff can manage orders" ON orders;
+  
+  -- Drop existing policies for order_items
+  DROP POLICY IF EXISTS "All authenticated users can view order items" ON order_items;
+  DROP POLICY IF EXISTS "Staff can manage order items" ON order_items;
+  
+  -- Drop existing policies for payments
+  DROP POLICY IF EXISTS "All authenticated users can view payments" ON payments;
+  DROP POLICY IF EXISTS "Staff can manage payments" ON payments;
+  
+  -- Drop existing policies for stock_items
+  DROP POLICY IF EXISTS "All authenticated users can view stock" ON stock_items;
+  DROP POLICY IF EXISTS "Staff can manage stock" ON stock_items;
+  
+  -- Drop existing policies for notifications
+  DROP POLICY IF EXISTS "All authenticated users can view notifications" ON notifications;
+  DROP POLICY IF EXISTS "Staff can manage notifications" ON notifications;
 EXCEPTION
-    WHEN undefined_table THEN NULL;
-    WHEN undefined_object THEN NULL;
+  WHEN undefined_object THEN
+    NULL; -- Ignore if policies don't exist
 END $$;
-
--- Create or replace the updated_at function
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
 
 -- Create profiles table (linked to auth.users)
 CREATE TABLE IF NOT EXISTS profiles (
@@ -179,32 +201,6 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies to avoid conflicts
-DO $$
-BEGIN
-    DROP POLICY IF EXISTS "Users can view all profiles" ON profiles;
-    DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
-    DROP POLICY IF EXISTS "Masters and admins can manage profiles" ON profiles;
-    DROP POLICY IF EXISTS "All authenticated users can view tables" ON tables;
-    DROP POLICY IF EXISTS "Staff can manage tables" ON tables;
-    DROP POLICY IF EXISTS "All authenticated users can view categories" ON categories;
-    DROP POLICY IF EXISTS "Managers can manage categories" ON categories;
-    DROP POLICY IF EXISTS "All authenticated users can view menu items" ON menu_items;
-    DROP POLICY IF EXISTS "Managers can manage menu items" ON menu_items;
-    DROP POLICY IF EXISTS "All authenticated users can view orders" ON orders;
-    DROP POLICY IF EXISTS "Staff can manage orders" ON orders;
-    DROP POLICY IF EXISTS "All authenticated users can view order items" ON order_items;
-    DROP POLICY IF EXISTS "Staff can manage order items" ON order_items;
-    DROP POLICY IF EXISTS "All authenticated users can view payments" ON payments;
-    DROP POLICY IF EXISTS "Staff can manage payments" ON payments;
-    DROP POLICY IF EXISTS "All authenticated users can view stock" ON stock_items;
-    DROP POLICY IF EXISTS "Staff can manage stock" ON stock_items;
-    DROP POLICY IF EXISTS "All authenticated users can view notifications" ON notifications;
-    DROP POLICY IF EXISTS "Staff can manage notifications" ON notifications;
-EXCEPTION
-    WHEN undefined_object THEN NULL;
-END $$;
-
 -- Create policies for profiles
 CREATE POLICY "profiles_view_all" ON profiles FOR SELECT TO authenticated USING (true);
 CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE TO authenticated USING (auth.uid() = user_id);
@@ -287,118 +283,168 @@ CREATE POLICY "notifications_manage_managers" ON notifications FOR ALL TO authen
     AND role IN ('master', 'admin', 'manager')
   ));
 
--- Create function to handle new user registration with master logic
-CREATE OR REPLACE FUNCTION handle_new_user()
+-- Create function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
-DECLARE
-    user_count integer;
-    user_role text;
 BEGIN
-    -- Check if this is the first user
-    SELECT COUNT(*) INTO user_count FROM profiles;
-    
-    -- If no users exist, make this user a master
-    IF user_count = 0 THEN
-        user_role := 'master';
-    ELSE
-        user_role := 'waiter';
-    END IF;
-    
-    INSERT INTO profiles (user_id, email, full_name, role)
-    VALUES (
-        NEW.id, 
-        NEW.email, 
-        COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário'), 
-        user_role
-    );
-    
+    NEW.updated_at = now();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ language 'plpgsql';
 
--- Create triggers for updated_at (with new names to avoid conflicts)
+-- Drop existing triggers if they exist
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
+DROP TRIGGER IF EXISTS update_tables_updated_at ON tables;
+DROP TRIGGER IF EXISTS update_menu_items_updated_at ON menu_items;
+DROP TRIGGER IF EXISTS update_orders_updated_at ON orders;
+DROP TRIGGER IF EXISTS update_stock_items_updated_at ON stock_items;
+
+-- Create triggers for updated_at
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_tables_updated_at BEFORE UPDATE ON tables FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_menu_items_updated_at BEFORE UPDATE ON menu_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_stock_items_updated_at BEFORE UPDATE ON stock_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- Create function to handle new user registration
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  user_count INTEGER;
+BEGIN
+  -- Check if this is the first user (will be master)
+  SELECT COUNT(*) INTO user_count FROM profiles;
+  
+  IF user_count = 0 THEN
+    -- First user becomes master
+    INSERT INTO profiles (user_id, email, full_name, role, permissions)
+    VALUES (
+      NEW.id, 
+      NEW.email, 
+      COALESCE(NEW.raw_user_meta_data->>'full_name', 'Master Admin'), 
+      'master',
+      '{"all": true}'::jsonb
+    );
+  ELSE
+    -- Subsequent users are waiters by default
+    INSERT INTO profiles (user_id, email, full_name, role)
+    VALUES (
+      NEW.id, 
+      NEW.email, 
+      COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário'), 
+      'waiter'
+    );
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Drop existing trigger if it exists
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
 -- Create trigger for new user registration
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
--- Insert initial data with conflict handling
+-- Insert initial data only if not exists
+INSERT INTO categories (name, description) 
+SELECT 'Entradas', 'Pratos para começar a refeição'
+WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = 'Entradas');
+
+INSERT INTO categories (name, description) 
+SELECT 'Pratos Principais', 'Pratos principais do cardápio'
+WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = 'Pratos Principais');
+
+INSERT INTO categories (name, description) 
+SELECT 'Bebidas', 'Bebidas diversas'
+WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = 'Bebidas');
+
+INSERT INTO categories (name, description) 
+SELECT 'Sobremesas', 'Doces e sobremesas'
+WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = 'Sobremesas');
+
+INSERT INTO categories (name, description) 
+SELECT 'Pizzas', 'Pizzas tradicionais e especiais'
+WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = 'Pizzas');
+
+-- Insert tables only if not exists
 DO $$
 BEGIN
-    -- Insert categories if they don't exist
-    IF NOT EXISTS (SELECT 1 FROM categories WHERE name = 'Entradas') THEN
-        INSERT INTO categories (name, description) VALUES
-          ('Entradas', 'Pratos para começar a refeição'),
-          ('Pratos Principais', 'Pratos principais do cardápio'),
-          ('Bebidas', 'Bebidas diversas'),
-          ('Sobremesas', 'Doces e sobremesas'),
-          ('Pizzas', 'Pizzas tradicionais e especiais');
-    END IF;
-
-    -- Insert tables if they don't exist
-    IF NOT EXISTS (SELECT 1 FROM tables WHERE table_number = 1) THEN
-        INSERT INTO tables (table_number, capacity, status) VALUES
-          (1, 2, 'available'),
-          (2, 4, 'available'),
-          (3, 4, 'available'),
-          (4, 6, 'available'),
-          (5, 2, 'available'),
-          (6, 4, 'available'),
-          (7, 8, 'available'),
-          (8, 4, 'available'),
-          (9, 2, 'available'),
-          (10, 6, 'available');
-    END IF;
-
-    -- Insert sample menu items if they don't exist
-    IF NOT EXISTS (SELECT 1 FROM menu_items WHERE name = 'Pizza Margherita') THEN
-        INSERT INTO menu_items (category_id, name, description, price, preparation_time, ingredients, allergens, options) 
-        SELECT 
-          c.id,
-          'Pizza Margherita',
-          'Pizza tradicional com molho de tomate, mussarela e manjericão',
-          32.90,
-          25,
-          ARRAY['Massa', 'Molho de tomate', 'Mussarela', 'Manjericão'],
-          ARRAY['Glúten', 'Lactose'],
-          '{"sizes": ["Pequena", "Média", "Grande"], "extras": ["Borda recheada", "Azeitona", "Orégano"]}'::jsonb
-        FROM categories c WHERE c.name = 'Pizzas';
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM menu_items WHERE name = 'Coca-Cola') THEN
-        INSERT INTO menu_items (category_id, name, description, price, preparation_time, ingredients, allergens, options) 
-        SELECT 
-          c.id,
-          'Coca-Cola',
-          'Refrigerante Coca-Cola gelado',
-          6.50,
-          2,
-          ARRAY['Coca-Cola'],
-          ARRAY[]::text[],
-          '{"sizes": ["350ml", "600ml", "2L"], "extras": ["Gelo", "Limão", "Canudo"]}'::jsonb
-        FROM categories c WHERE c.name = 'Bebidas';
-    END IF;
-
-    -- Insert sample stock items if they don't exist
-    IF NOT EXISTS (SELECT 1 FROM stock_items WHERE name = 'Queijo Mussarela') THEN
-        INSERT INTO stock_items (name, category, current_stock, min_stock, max_stock, unit, cost_per_unit, supplier, expiry_date) VALUES
-          ('Queijo Mussarela', 'Laticínios', 15.5, 10.0, 50.0, 'kg', 28.90, 'Laticínios ABC', '2024-07-15'),
-          ('Massa de Pizza', 'Massas', 25.0, 20.0, 100.0, 'kg', 8.50, 'Massas XYZ', '2024-08-01'),
-          ('Coca-Cola 350ml', 'Bebidas', 48, 24, 120, 'unidades', 3.20, 'Bebidas Ltda', '2024-12-31'),
-          ('Tomate', 'Vegetais', 8.2, 5.0, 30.0, 'kg', 4.50, 'Hortifruti Local', '2024-06-20');
-    END IF;
-
-    -- Insert sample notifications if they don't exist
-    IF NOT EXISTS (SELECT 1 FROM notifications WHERE title = 'Sistema Inicializado') THEN
-        INSERT INTO notifications (title, message, type, category, priority) VALUES
-          ('Sistema Inicializado', 'O sistema de gestão do restaurante foi configurado com sucesso!', 'success', 'system', 'medium'),
-          ('Verificar Estoque', 'Alguns itens estão próximos do estoque mínimo', 'warning', 'stock', 'high');
-    END IF;
-
+  IF NOT EXISTS (SELECT 1 FROM tables WHERE table_number = 1) THEN
+    INSERT INTO tables (table_number, capacity, status) VALUES
+      (1, 2, 'available'),
+      (2, 4, 'available'),
+      (3, 4, 'available'),
+      (4, 6, 'available'),
+      (5, 2, 'available'),
+      (6, 4, 'available'),
+      (7, 8, 'available'),
+      (8, 4, 'available'),
+      (9, 2, 'available'),
+      (10, 6, 'available');
+  END IF;
 END $$;
+
+-- Insert sample menu items only if not exists
+DO $$
+DECLARE
+  pizza_category_id uuid;
+  bebidas_category_id uuid;
+BEGIN
+  -- Get category IDs
+  SELECT id INTO pizza_category_id FROM categories WHERE name = 'Pizzas' LIMIT 1;
+  SELECT id INTO bebidas_category_id FROM categories WHERE name = 'Bebidas' LIMIT 1;
+  
+  -- Insert Pizza Margherita if not exists
+  IF NOT EXISTS (SELECT 1 FROM menu_items WHERE name = 'Pizza Margherita') AND pizza_category_id IS NOT NULL THEN
+    INSERT INTO menu_items (category_id, name, description, price, preparation_time, ingredients, allergens, options) 
+    VALUES (
+      pizza_category_id,
+      'Pizza Margherita',
+      'Pizza tradicional com molho de tomate, mussarela e manjericão',
+      32.90,
+      25,
+      ARRAY['Massa', 'Molho de tomate', 'Mussarela', 'Manjericão'],
+      ARRAY['Glúten', 'Lactose'],
+      '{"sizes": ["Pequena", "Média", "Grande"], "extras": ["Borda recheada", "Azeitona", "Orégano"]}'::jsonb
+    );
+  END IF;
+  
+  -- Insert Coca-Cola if not exists
+  IF NOT EXISTS (SELECT 1 FROM menu_items WHERE name = 'Coca-Cola') AND bebidas_category_id IS NOT NULL THEN
+    INSERT INTO menu_items (category_id, name, description, price, preparation_time, ingredients, allergens, options) 
+    VALUES (
+      bebidas_category_id,
+      'Coca-Cola',
+      'Refrigerante Coca-Cola gelado',
+      6.50,
+      2,
+      ARRAY['Coca-Cola'],
+      ARRAY[]::text[],
+      '{"sizes": ["350ml", "600ml", "2L"], "extras": ["Gelo", "Limão", "Canudo"]}'::jsonb
+    );
+  END IF;
+END $$;
+
+-- Insert sample stock items only if not exists
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM stock_items WHERE name = 'Queijo Mussarela') THEN
+    INSERT INTO stock_items (name, category, current_stock, min_stock, max_stock, unit, cost_per_unit, supplier, expiry_date) VALUES
+      ('Queijo Mussarela', 'Laticínios', 15.5, 10.0, 50.0, 'kg', 28.90, 'Laticínios ABC', '2024-07-15'),
+      ('Massa de Pizza', 'Massas', 25.0, 20.0, 100.0, 'kg', 8.50, 'Massas XYZ', '2024-08-01'),
+      ('Coca-Cola 350ml', 'Bebidas', 48, 24, 120, 'unidades', 3.20, 'Bebidas Ltda', '2024-12-31'),
+      ('Tomate', 'Vegetais', 8.2, 5.0, 30.0, 'kg', 4.50, 'Hortifruti Local', '2024-06-20');
+  END IF;
+END $$;
+
+-- Insert sample notifications
+INSERT INTO notifications (title, message, type, category, priority, action_required)
+SELECT 'Estoque Baixo', 'Queijo Mussarela está abaixo do estoque mínimo', 'warning', 'stock', 'high', true
+WHERE NOT EXISTS (SELECT 1 FROM notifications WHERE title = 'Estoque Baixo');
+
+INSERT INTO notifications (title, message, type, category, priority)
+SELECT 'Sistema Iniciado', 'Sistema de gestão do restaurante foi iniciado com sucesso', 'success', 'system', 'low'
+WHERE NOT EXISTS (SELECT 1 FROM notifications WHERE title = 'Sistema Iniciado');
