@@ -27,6 +27,8 @@ export const LoginForm = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!loginData.email || !loginData.password) return;
+    
     setLoading(true);
 
     try {
@@ -47,6 +49,7 @@ export const LoginForm = () => {
         });
       }
     } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: "Erro",
         description: "Erro inesperado ao fazer login",
@@ -105,7 +108,6 @@ export const LoginForm = () => {
           title: "Conta criada!",
           description: "Sua conta foi criada com sucesso",
         });
-        // Reset form
         setSignupData({
           email: '',
           password: '',
@@ -114,6 +116,7 @@ export const LoginForm = () => {
         });
       }
     } catch (error) {
+      console.error('Signup error:', error);
       toast({
         title: "Erro",
         description: "Erro inesperado ao criar conta",

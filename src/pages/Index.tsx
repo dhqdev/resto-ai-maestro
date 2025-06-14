@@ -60,20 +60,18 @@ const Index = () => {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      // Fetch today's orders
       const { data: orders } = await supabase
         .from('orders')
         .select('total_amount, status')
         .gte('created_at', today)
         .lt('created_at', new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
 
-      // Fetch table occupancy
       const { data: tables } = await supabase
         .from('tables')
         .select('status');
 
       const completedOrders = orders?.filter(o => o.status === 'delivered') || [];
-      const revenue = completedOrders.reduce((sum, order) => sum + order.total_amount, 0);
+      const revenue = completedOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
       const orderCount = orders?.length || 0;
       const avgTicket = orderCount > 0 ? revenue / orderCount : 0;
       
@@ -89,6 +87,12 @@ const Index = () => {
       });
     } catch (error) {
       console.error('Error fetching metrics:', error);
+      setTodayMetrics({
+        revenue: 0,
+        orders: 0,
+        avgTicket: 0,
+        occupancy: 0
+      });
     }
   };
 
@@ -103,6 +107,7 @@ const Index = () => {
       setNotifications(data || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setNotifications([]);
     }
   };
 
@@ -115,7 +120,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-yellow-50 p-4">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header Melhorado */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
             <MobileNavigation 
@@ -136,15 +140,16 @@ const Index = () => {
                     day: 'numeric' 
                   })} - {currentTime.toLocaleTimeString('pt-BR')}
                 </p>
-                <Badge variant="outline" className="text-xs w-fit">
-                  👤 {profile?.full_name} • {profile?.role}
-                </Badge>
+                {profile && (
+                  <Badge variant="outline" className="text-xs w-fit">
+                    👤 {profile.full_name} • {profile.role}
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
           
           <div className="flex gap-3">
-            {/* Notificações como pop-up */}
             <Button 
               variant="outline" 
               className="relative hover:bg-orange-50"
@@ -177,7 +182,6 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Métricas Melhoradas */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card 
             className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0 cursor-pointer hover:shadow-xl transition-all duration-200 hover:scale-105"
@@ -250,7 +254,6 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Tabs Reorganizadas */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="hidden md:block">
             <TabsList className="grid w-full grid-cols-6 bg-white shadow-lg rounded-xl p-1">
@@ -306,7 +309,6 @@ const Index = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Dialog de Notificações */}
         <Dialog open={isNotificationDialogOpen} onOpenChange={setIsNotificationDialogOpen}>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>

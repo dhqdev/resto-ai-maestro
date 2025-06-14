@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -11,7 +12,6 @@ import {
   TrendingUp, 
   MenuIcon, 
   UserCog, 
-  Zap, 
   Bell,
   LogOut
 } from 'lucide-react';
@@ -37,7 +37,6 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     { id: 'analytics', label: 'Financeiro', icon: TrendingUp },
     { id: 'menu', label: 'Cardápio', icon: MenuIcon },
     { id: 'users', label: 'Usuários', icon: UserCog },
-    { id: 'integrations', label: 'Integrações', icon: Zap },
   ];
 
   const handleTabChange = (tab: string) => {
@@ -66,7 +65,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
               </div>
               <div>
                 <h2 className="font-bold">Restaurant AI</h2>
-                <p className="text-sm text-gray-600">{profile?.full_name}</p>
+                <p className="text-sm text-gray-600">{profile?.full_name || 'Usuário'}</p>
               </div>
             </div>
 
