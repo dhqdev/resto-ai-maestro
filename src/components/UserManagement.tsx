@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,98 +9,106 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { toast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Users, 
   UserPlus, 
   Edit, 
   Trash2, 
-  Shield, 
   Eye, 
   EyeOff,
   Search,
-  Filter
+  Loader2
 } from 'lucide-react';
 
-interface User {
+interface UserProfile {
   id: string;
-  name: string;
+  user_id: string;
   email: string;
-  role: 'admin' | 'manager' | 'waiter' | 'kitchen' | 'cashier';
-  status: 'active' | 'inactive';
-  lastLogin: string;
-  permissions: string[];
-  createdAt: string;
+  full_name: string;
+  role: 'master' | 'admin' | 'manager' | 'waiter' | 'kitchen' | 'cashier';
+  permissions: { [key: string]: boolean };
+  is_active: boolean;
+  created_at: string;
 }
 
 export const UserManagement = () => {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '001',
-      name: 'João Silva',
-      email: 'joao@restaurante.com',
-      role: 'admin',
-      status: 'active',
-      lastLogin: '2024-06-06 14:30',
-      permissions: ['all'],
-      createdAt: '2024-01-15'
-    },
-    {
-      id: '002',
-      name: 'Maria Santos',
-      email: 'maria@restaurante.com',
-      role: 'manager',
-      status: 'active',
-      lastLogin: '2024-06-06 13:45',
-      permissions: ['orders', 'tables', 'reports'],
-      createdAt: '2024-02-20'
-    },
-    {
-      id: '003',
-      name: 'Carlos Oliveira',
-      email: 'carlos@restaurante.com',
-      role: 'waiter',
-      status: 'active',
-      lastLogin: '2024-06-06 14:15',
-      permissions: ['orders', 'tables'],
-      createdAt: '2024-03-10'
-    },
-    {
-      id: '004',
-      name: 'Ana Costa',
-      email: 'ana@restaurante.com',
-      role: 'kitchen',
-      status: 'active',
-      lastLogin: '2024-06-06 12:30',
-      permissions: ['orders'],
-      createdAt: '2024-03-15'
-    },
-    {
-      id: '005',
-      name: 'Bruno Lima',
-      email: 'bruno@restaurante.com',
-      role: 'cashier',
-      status: 'inactive',
-      lastLogin: '2024-06-05 18:00',
-      permissions: ['payments', 'reports'],
-      createdAt: '2024-04-01'
-    }
-  ]);
-
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [newUser, setNewUser] = useState({
-    name: '',
-    email: '',
-    role: 'waiter' as User['role'],
-    password: '',
-    permissions: [] as string[]
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+
+  const { data: users, isLoading, error } = useQuery<UserProfile[]>({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('profiles').select('*').order('created_at');
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
   });
 
+  const updateUserMutation = useMutation({
+    mutationFn: async (userToUpdate: Partial<UserProfile> & { id: string }) => {
+      const { id, ...updateData } = userToUpdate;
+      const { error } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Sucesso!", description: "Usuário atualizado." });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setEditingUser(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: `Não foi possível atualizar o usuário: ${err.message}`, variant: "destructive" });
+    },
+  });
+
+  const toggleUserStatusMutation = useMutation({
+    mutationFn: async ({ userId, newStatus }: { userId: string, newStatus: boolean }) => {
+      const { error } = await supabase.from('profiles').update({ is_active: newStatus }).eq('id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Sucesso!", description: "Status do usuário atualizado." });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: `Não foi possível atualizar o status: ${err.message}`, variant: "destructive" });
+    },
+  });
+  
+  const handleCreateUser = () => {
+    toast({
+      title: "Funcionalidade em desenvolvimento",
+      description: "A criação de usuários será implementada de forma segura em breve.",
+    });
+    setIsCreateDialogOpen(false);
+  };
+
+  const handleUpdateUser = () => {
+    if (editingUser) {
+      updateUserMutation.mutate(editingUser);
+    }
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    toggleUserStatusMutation.mutate({ userId, newStatus: false });
+    toast({ title: "Usuário Desativado", description: "Para segurança, o usuário foi desativado em vez de excluído." });
+  };
+
+  const toggleUserStatus = (userId: string, currentStatus: boolean) => {
+    toggleUserStatusMutation.mutate({ userId, newStatus: !currentStatus });
+  };
+  
   const getRoleColor = (role: string) => {
     switch (role) {
+      case 'master': return 'bg-yellow-500';
       case 'admin': return 'bg-red-500';
       case 'manager': return 'bg-blue-500';
       case 'waiter': return 'bg-green-500';
@@ -110,6 +120,7 @@ export const UserManagement = () => {
 
   const getRoleText = (role: string) => {
     switch (role) {
+      case 'master': return 'Master';
       case 'admin': return 'Administrador';
       case 'manager': return 'Gerente';
       case 'waiter': return 'Garçom';
@@ -119,63 +130,17 @@ export const UserManagement = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    return status === 'active' ? 'bg-green-500' : 'bg-gray-500';
-  };
+  const getStatusColor = (status: boolean) => status ? 'bg-green-500' : 'bg-gray-500';
+  const getStatusText = (status: boolean) => status ? 'Ativo' : 'Inativo';
 
-  const getStatusText = (status: string) => {
-    return status === 'active' ? 'Ativo' : 'Inativo';
-  };
-
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredUsers = users?.filter(user => {
+    const matchesSearch = user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = filterRole === 'all' || user.role === filterRole;
-    const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
-    
+    const matchesStatus = filterStatus === 'all' || (filterStatus === 'active' ? user.is_active : !user.is_active);
     return matchesSearch && matchesRole && matchesStatus;
   });
-
-  const handleCreateUser = () => {
-    const user: User = {
-      id: (users.length + 1).toString().padStart(3, '0'),
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      status: 'active',
-      lastLogin: 'Nunca',
-      permissions: newUser.permissions,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-
-    setUsers([...users, user]);
-    setNewUser({ name: '', email: '', role: 'waiter', password: '', permissions: [] });
-    setIsCreateDialogOpen(false);
-  };
-
-  const handleEditUser = (user: User) => {
-    setEditingUser(user);
-  };
-
-  const handleUpdateUser = () => {
-    if (editingUser) {
-      setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
-      setEditingUser(null);
-    }
-  };
-
-  const handleDeleteUser = (userId: string) => {
-    setUsers(users.filter(u => u.id !== userId));
-  };
-
-  const toggleUserStatus = (userId: string) => {
-    setUsers(users.map(u => 
-      u.id === userId 
-        ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' }
-        : u
-    ));
-  };
-
+  
   const availablePermissions = [
     { id: 'orders', label: 'Gestão de Pedidos' },
     { id: 'tables', label: 'Controle de Mesas' },
@@ -185,6 +150,22 @@ export const UserManagement = () => {
     { id: 'users', label: 'Gestão de Usuários' },
     { id: 'settings', label: 'Configurações' }
   ];
+
+  if (error) {
+    return (
+      <Card className="text-center py-12 bg-red-50 border-red-200">
+        <CardContent>
+          <h3 className="text-xl font-medium text-red-800 mb-2">
+            Ocorreu um erro
+          </h3>
+          <p className="text-red-700">
+            Não foi possível carregar os usuários. Tente recarregar a página.
+          </p>
+          <p className="text-sm text-gray-500 mt-2">{error.message}</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -201,86 +182,19 @@ export const UserManagement = () => {
             <DialogHeader>
               <DialogTitle>Criar Novo Usuário</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Nome Completo</Label>
-                <Input
-                  id="name"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  placeholder="Digite o nome completo"
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  placeholder="Digite o email"
-                />
-              </div>
-              <div>
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={newUser.password}
-                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                  placeholder="Digite a senha"
-                />
-              </div>
-              <div>
-                <Label htmlFor="role">Função</Label>
-                <Select value={newUser.role} onValueChange={(value) => setNewUser({ ...newUser, role: value as User['role'] })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="manager">Gerente</SelectItem>
-                    <SelectItem value="waiter">Garçom</SelectItem>
-                    <SelectItem value="kitchen">Cozinha</SelectItem>
-                    <SelectItem value="cashier">Caixa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Permissões</Label>
-                <div className="space-y-2 mt-2">
-                  {availablePermissions.map(permission => (
-                    <div key={permission.id} className="flex items-center space-x-2">
-                      <Switch
-                        checked={newUser.permissions.includes(permission.id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setNewUser({
-                              ...newUser,
-                              permissions: [...newUser.permissions, permission.id]
-                            });
-                          } else {
-                            setNewUser({
-                              ...newUser,
-                              permissions: newUser.permissions.filter(p => p !== permission.id)
-                            });
-                          }
-                        }}
-                      />
-                      <Label className="text-sm">{permission.label}</Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <Button onClick={handleCreateUser} className="w-full">
-                Criar Usuário
-              </Button>
+            <div className="space-y-4 py-4">
+               <p className="text-sm text-gray-600">
+                 Para adicionar um novo usuário, peça para que ele se cadastre na tela de login. 
+                 O perfil será criado automaticamente e você poderá editar as permissões aqui.
+               </p>
+            </div>
+            <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Fechar</Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -292,11 +206,12 @@ export const UserManagement = () => {
           />
         </div>
         <Select value={filterRole} onValueChange={setFilterRole}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full md:w-48">
             <SelectValue placeholder="Filtrar por função" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas as funções</SelectItem>
+            <SelectItem value="master">Master</SelectItem>
             <SelectItem value="admin">Administrador</SelectItem>
             <SelectItem value="manager">Gerente</SelectItem>
             <SelectItem value="waiter">Garçom</SelectItem>
@@ -305,7 +220,7 @@ export const UserManagement = () => {
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-32">
+          <SelectTrigger className="w-full md:w-32">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -316,110 +231,116 @@ export const UserManagement = () => {
         </Select>
       </div>
 
-      {/* Users Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredUsers.map((user) => (
-          <Card key={user.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{user.name}</CardTitle>
-                  <p className="text-sm text-gray-600 mt-1">{user.email}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Badge className={`${getRoleColor(user.role)} text-white`}>
-                    {getRoleText(user.role)}
-                  </Badge>
-                  <Badge className={`${getStatusColor(user.status)} text-white`}>
-                    {getStatusText(user.status)}
-                  </Badge>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-sm">
-                <p className="text-gray-600">Último acesso:</p>
-                <p className="font-medium">{user.lastLogin}</p>
-              </div>
-              
-              <div className="text-sm">
-                <p className="text-gray-600">Criado em:</p>
-                <p className="font-medium">
-                  {new Date(user.createdAt).toLocaleDateString('pt-BR')}
-                </p>
-              </div>
-
-              <div className="text-sm">
-                <p className="text-gray-600 mb-2">Permissões:</p>
-                <div className="flex flex-wrap gap-1">
-                  {user.permissions.includes('all') ? (
-                    <Badge variant="outline" className="text-xs">Todas</Badge>
-                  ) : (
-                    user.permissions.map(permission => (
-                      <Badge key={permission} variant="outline" className="text-xs">
-                        {availablePermissions.find(p => p.id === permission)?.label}
+      {isLoading ? (
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-64 w-full" />)}
+         </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredUsers?.map((user) => (
+              <Card key={user.id} className="hover:shadow-lg transition-shadow flex flex-col">
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg">{user.full_name}</CardTitle>
+                      <p className="text-sm text-gray-600 mt-1">{user.email}</p>
+                    </div>
+                    <div className="flex flex-col gap-2 items-end">
+                      <Badge className={`${getRoleColor(user.role)} text-white`}>
+                        {getRoleText(user.role)}
                       </Badge>
-                    ))
-                  )}
-                </div>
-              </div>
+                      <Badge className={`${getStatusColor(user.is_active)} text-white`}>
+                        {getStatusText(user.is_active)}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4 flex-1 flex flex-col">
+                  <div className="text-sm flex-1">
+                    <p className="text-gray-600 mb-2">Permissões:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {user.permissions?.all ? (
+                        <Badge variant="secondary">Todas</Badge>
+                      ) : user.permissions && Object.keys(user.permissions).length > 0 ? (
+                        Object.keys(user.permissions)
+                          .filter(p => user.permissions[p])
+                          .map(permission => (
+                          <Badge key={permission} variant="secondary" className="text-xs font-normal">
+                            {availablePermissions.find(p => p.id === permission)?.label || permission}
+                          </Badge>
+                        ))
+                      ) : (
+                        <Badge variant="outline">Nenhuma</Badge>
+                      )}
+                    </div>
+                  </div>
 
-              <div className="flex gap-2 pt-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEditUser(user)}
-                  className="flex-1"
-                >
-                  <Edit className="h-4 w-4 mr-1" />
-                  Editar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => toggleUserStatus(user.id)}
-                  className="flex-1"
-                >
-                  {user.status === 'active' ? (
-                    <>
-                      <EyeOff className="h-4 w-4 mr-1" />
-                      Desativar
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="h-4 w-4 mr-1" />
-                      Ativar
-                    </>
-                  )}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleDeleteUser(user.id)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                  <div className="flex gap-2 pt-2 border-t mt-auto">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingUser(user)}
+                      className="flex-1"
+                      disabled={updateUserMutation.isPending}
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Editar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => toggleUserStatus(user.id, user.is_active)}
+                      className="flex-1"
+                      disabled={toggleUserStatusMutation.isPending && toggleUserStatusMutation.variables?.userId === user.id}
+                    >
+                      {user.is_active ? (
+                        <>
+                          <EyeOff className="h-4 w-4 mr-1" />
+                          Desativar
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ativar
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-      {/* Edit User Dialog */}
+          {filteredUsers?.length === 0 && (
+            <Card className="text-center py-12">
+              <CardContent>
+                <Users className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                <h3 className="text-xl font-medium text-gray-900 mb-2">
+                  Nenhum usuário encontrado
+                </h3>
+                <p className="text-gray-600">
+                  Ajuste os filtros ou peça para um novo membro se cadastrar.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
       {editingUser && (
         <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Editar Usuário</DialogTitle>
+              <DialogTitle>Editar Usuário: {editingUser.full_name}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 py-4">
               <div>
                 <Label htmlFor="edit-name">Nome Completo</Label>
                 <Input
                   id="edit-name"
-                  value={editingUser.name}
-                  onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                  value={editingUser.full_name}
+                  onChange={(e) => setEditingUser({ ...editingUser, full_name: e.target.value })}
                 />
               </div>
               <div>
@@ -428,19 +349,21 @@ export const UserManagement = () => {
                   id="edit-email"
                   type="email"
                   value={editingUser.email}
-                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                  disabled
+                  className="text-gray-500"
                 />
               </div>
               <div>
                 <Label htmlFor="edit-role">Função</Label>
-                <Select 
-                  value={editingUser.role} 
-                  onValueChange={(value) => setEditingUser({ ...editingUser, role: value as User['role'] })}
+                <Select
+                  value={editingUser.role}
+                  onValueChange={(value) => setEditingUser({ ...editingUser, role: value as UserProfile['role'] })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="master">Master</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
                     <SelectItem value="manager">Gerente</SelectItem>
                     <SelectItem value="waiter">Garçom</SelectItem>
@@ -451,50 +374,32 @@ export const UserManagement = () => {
               </div>
               <div>
                 <Label>Permissões</Label>
-                <div className="space-y-2 mt-2">
+                <div className="space-y-2 mt-2 rounded-lg border p-4 max-h-60 overflow-y-auto">
                   {availablePermissions.map(permission => (
-                    <div key={permission.id} className="flex items-center space-x-2">
+                    <div key={permission.id} className="flex items-center space-x-3">
                       <Switch
-                        checked={editingUser.permissions.includes(permission.id)}
+                        id={`perm-${permission.id}`}
+                        checked={!!editingUser.permissions?.[permission.id]}
                         onCheckedChange={(checked) => {
-                          if (checked) {
-                            setEditingUser({
-                              ...editingUser,
-                              permissions: [...editingUser.permissions, permission.id]
-                            });
-                          } else {
-                            setEditingUser({
-                              ...editingUser,
-                              permissions: editingUser.permissions.filter(p => p !== permission.id)
-                            });
-                          }
+                          const newPerms = { ...editingUser.permissions, [permission.id]: checked };
+                          setEditingUser({ ...editingUser, permissions: newPerms });
                         }}
                       />
-                      <Label className="text-sm">{permission.label}</Label>
+                      <Label htmlFor={`perm-${permission.id}`} className="font-normal text-sm">{permission.label}</Label>
                     </div>
                   ))}
                 </div>
               </div>
-              <Button onClick={handleUpdateUser} className="w-full">
-                Salvar Alterações
-              </Button>
+            </div>
+            <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditingUser(null)}>Cancelar</Button>
+                <Button onClick={handleUpdateUser} disabled={updateUserMutation.isPending}>
+                  {updateUserMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Salvar Alterações
+                </Button>
             </div>
           </DialogContent>
         </Dialog>
-      )}
-
-      {filteredUsers.length === 0 && (
-        <Card className="text-center py-12">
-          <CardContent>
-            <div className="text-6xl mb-4">👥</div>
-            <h3 className="text-xl font-medium text-gray-900 mb-2">
-              Nenhum usuário encontrado
-            </h3>
-            <p className="text-gray-600">
-              Ajuste os filtros ou crie um novo usuário
-            </p>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
