@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,7 +47,17 @@ export const UserManagement = () => {
     queryFn: async () => {
       const { data, error } = await supabase.from('profiles').select('*').order('created_at');
       if (error) throw new Error(error.message);
-      return data || [];
+      
+      return (data || []).map((profile) => ({
+        id: profile.id,
+        user_id: profile.user_id ?? 'N/A',
+        email: profile.email,
+        full_name: profile.full_name,
+        role: profile.role as UserProfile['role'],
+        permissions: (profile.permissions as { [key: string]: boolean }) || {},
+        is_active: profile.is_active ?? false,
+        created_at: profile.created_at ?? 'N/A',
+      }));
     },
   });
 
