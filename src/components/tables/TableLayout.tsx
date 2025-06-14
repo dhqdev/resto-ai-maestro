@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/hooks/use-toast';
 import { Users, Clock, DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface Table {
@@ -21,7 +22,7 @@ interface Order {
   table_id: string;
   total_amount: number;
   created_at: string;
-  waiter: {
+  profiles: {
     full_name: string;
   };
 }
@@ -123,11 +124,18 @@ export const TableLayout = () => {
       if (error) throw error;
 
       await fetchTables();
-      toast.success('Status da mesa atualizado!');
+      toast({
+        title: "Sucesso",
+        description: "Status da mesa atualizado!",
+      });
       setIsDialogOpen(false);
     } catch (error) {
       console.error('Error updating table:', error);
-      toast.error('Erro ao atualizar mesa');
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar mesa",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -152,11 +160,18 @@ export const TableLayout = () => {
 
       await fetchTables();
       await fetchOrders();
-      toast.success('Mesa fechada com sucesso!');
+      toast({
+        title: "Sucesso",
+        description: "Mesa fechada com sucesso!",
+      });
       setIsDialogOpen(false);
     } catch (error) {
       console.error('Error closing table:', error);
-      toast.error('Erro ao fechar mesa');
+      toast({
+        title: "Erro",
+        description: "Erro ao fechar mesa",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -341,7 +356,7 @@ export const TableLayout = () => {
                     </div>
                     <div className="flex justify-between">
                       <span>Garçom:</span>
-                      <span>{getTableOrder(selectedTable.id)?.waiter?.full_name}</span>
+                      <span>{getTableOrder(selectedTable.id)?.profiles?.full_name}</span>
                     </div>
                   </div>
                 </div>

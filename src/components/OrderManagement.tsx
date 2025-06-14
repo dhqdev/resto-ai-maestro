@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { NewOrderDialog } from '@/components/orders/NewOrderDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/components/ui/sonner';
-import { Clock, MapPin, Phone, CheckCircle, AlertCircle, Timer, Plus, User, DollarSign } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import { Clock, MapPin, User, DollarSign, Plus, CheckCircle, Timer } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -72,7 +73,11 @@ export const OrderManagement = () => {
       setOrders(data || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
-      toast.error('Erro ao carregar pedidos');
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar pedidos",
+        variant: "destructive"
+      });
     }
   };
 
@@ -113,10 +118,17 @@ export const OrderManagement = () => {
       if (error) throw error;
 
       await fetchOrders();
-      toast.success('Status do pedido atualizado!');
+      toast({
+        title: "Sucesso",
+        description: "Status do pedido atualizado!",
+      });
     } catch (error) {
       console.error('Error updating order:', error);
-      toast.error('Erro ao atualizar pedido');
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar pedido",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
