@@ -78,8 +78,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Error fetching profile:', error);
-      } else {
-        setProfile(data);
+      } else if (data) {
+        // Type-safe conversion from database response to Profile interface
+        const profileData: Profile = {
+          id: data.id,
+          user_id: data.user_id,
+          email: data.email,
+          full_name: data.full_name,
+          role: data.role as Profile['role'], // Type assertion for role
+          permissions: data.permissions,
+          is_active: data.is_active
+        };
+        setProfile(profileData);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);

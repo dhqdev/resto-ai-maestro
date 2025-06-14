@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,36 +39,49 @@ export const TableLayout = () => {
   }, []);
 
   const fetchTables = async () => {
-    const { data, error } = await supabase
-      .from('tables')
-      .select('*')
-      .order('table_number');
+    try {
+      const { data, error } = await supabase
+        .from('tables')
+        .select('*')
+        .order('table_number');
 
-    if (error) {
+      if (error) throw error;
+      
+      // Type-safe conversion from database response to Table interface
+      const tablesData: Table[] = (data || []).map(item => ({
+        id: item.id,
+        table_number: item.table_number,
+        capacity: item.capacity,
+        status: item.status as Table['status'], // Type assertion for status
+        position_x: item.position_x,
+        position_y: item.position_y
+      }));
+      
+      setTables(tablesData);
+    } catch (error) {
       console.error('Error fetching tables:', error);
-    } else {
-      setTables(data || []);
     }
   };
 
   const fetchOrders = async () => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        id,
-        table_id,
-        total_amount,
-        created_at,
-        profiles:waiter_id (
-          full_name
-        )
-      `)
-      .in('status', ['pending', 'preparing', 'ready']);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          table_id,
+          total_amount,
+          created_at,
+          profiles:waiter_id (
+            full_name
+          )
+        `)
+        .in('status', ['pending', 'preparing', 'ready']);
 
-    if (error) {
-      console.error('Error fetching orders:', error);
-    } else {
+      if (error) throw error;
       setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
     }
   };
 

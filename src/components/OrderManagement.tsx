@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -70,7 +69,23 @@ export const OrderManagement = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+      
+      // Type-safe conversion from database response to Order interface
+      const ordersData: Order[] = (data || []).map(item => ({
+        id: item.id,
+        order_number: item.order_number,
+        table_id: item.table_id,
+        waiter_id: item.waiter_id,
+        status: item.status as Order['status'], // Type assertion for status
+        total_amount: item.total_amount,
+        notes: item.notes,
+        created_at: item.created_at,
+        tables: item.tables,
+        profiles: item.profiles,
+        order_items: item.order_items || []
+      }));
+      
+      setOrders(ordersData);
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast({

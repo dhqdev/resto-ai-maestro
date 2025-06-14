@@ -382,7 +382,7 @@ export const MenuManagement = () => {
                   <CardTitle className="text-lg flex items-center gap-2">
                     {item.name}
                     {!item.available && (
-                      <Badge variant="outline\" className="text-red-600 border-red-200">
+                      <Badge variant="outline" className="text-red-600 border-red-200">
                         Indisponível
                       </Badge>
                     )}

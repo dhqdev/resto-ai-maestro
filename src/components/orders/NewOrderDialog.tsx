@@ -60,32 +60,46 @@ export const NewOrderDialog = ({ isOpen, onClose, onOrderCreated }: NewOrderDial
   }, [isOpen]);
 
   const fetchMenuItems = async () => {
-    const { data, error } = await supabase
-      .from('menu_items')
-      .select(`
-        *,
-        categories (name)
-      `)
-      .eq('is_available', true);
+    try {
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select(`
+          *,
+          categories (name)
+        `)
+        .eq('is_available', true);
 
-    if (error) {
+      if (error) throw error;
+      
+      // Type-safe conversion from database response to MenuItem interface
+      const menuItemsData: MenuItem[] = (data || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description || '',
+        price: item.price,
+        category: {
+          name: item.categories?.name || 'Sem categoria'
+        }
+      }));
+      
+      setMenuItems(menuItemsData);
+    } catch (error) {
       console.error('Error fetching menu items:', error);
-    } else {
-      setMenuItems(data || []);
     }
   };
 
   const fetchTables = async () => {
-    const { data, error } = await supabase
-      .from('tables')
-      .select('*')
-      .eq('status', 'available')
-      .order('table_number');
+    try {
+      const { data, error } = await supabase
+        .from('tables')
+        .select('*')
+        .eq('status', 'available')
+        .order('table_number');
 
-    if (error) {
-      console.error('Error fetching tables:', error);
-    } else {
+      if (error) throw error;
       setTables(data || []);
+    } catch (error) {
+      console.error('Error fetching tables:', error);
     }
   };
 
@@ -233,7 +247,7 @@ export const NewOrderDialog = ({ isOpen, onClose, onOrderCreated }: NewOrderDial
                         <h4 className="font-medium">{item.name}</h4>
                         <p className="text-sm text-gray-600 mb-2">{item.description}</p>
                         <Badge variant="outline" className="text-xs">
-                          {item.categories?.name}
+                          {item.category?.name}
                         </Badge>
                       </div>
                       <div className="text-right ml-4">
