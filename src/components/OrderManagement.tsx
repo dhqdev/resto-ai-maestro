@@ -20,10 +20,10 @@ interface Order {
   created_at: string;
   tables: {
     table_number: number;
-  };
+  } | null;
   profiles: {
     full_name: string;
-  };
+  } | null;
   order_items: Array<{
     id: string;
     quantity: number;
@@ -31,7 +31,7 @@ interface Order {
     total_price: number;
     menu_items: {
       name: string;
-    };
+    } | null;
     options: any;
     notes: string;
   }>;
@@ -70,19 +70,26 @@ export const OrderManagement = () => {
 
       if (error) throw error;
       
-      // Type-safe conversion from database response to Order interface
       const ordersData: Order[] = (data || []).map(item => ({
         id: item.id,
         order_number: item.order_number,
         table_id: item.table_id,
         waiter_id: item.waiter_id,
-        status: item.status as Order['status'], // Type assertion for status
-        total_amount: item.total_amount,
-        notes: item.notes,
+        status: item.status as Order['status'],
+        total_amount: Number(item.total_amount) || 0,
+        notes: item.notes || '',
         created_at: item.created_at,
         tables: item.tables,
         profiles: item.profiles,
-        order_items: item.order_items || []
+        order_items: (item.order_items || []).map(orderItem => ({
+          id: orderItem.id,
+          quantity: orderItem.quantity,
+          unit_price: Number(orderItem.unit_price) || 0,
+          total_price: Number(orderItem.total_price) || 0,
+          menu_items: orderItem.menu_items,
+          options: orderItem.options || {},
+          notes: orderItem.notes || ''
+        }))
       }));
       
       setOrders(ordersData);
@@ -255,11 +262,11 @@ export const OrderManagement = () => {
                   </CardTitle>
                   <div className="flex items-center gap-2 mt-1">
                     <MapPin className="h-4 w-4 text-gray-500" />
-                    <p className="text-gray-600">Mesa {order.tables?.table_number}</p>
+                    <p className="text-gray-600">Mesa {order.tables?.table_number || 'N/A'}</p>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <User className="h-4 w-4 text-gray-500" />
-                    <p className="text-sm text-gray-600">{order.profiles?.full_name}</p>
+                    <p className="text-sm text-gray-600">{order.profiles?.full_name || 'N/A'}</p>
                   </div>
                 </div>
                 <Badge className={`${getStatusColor(order.status)} text-white`}>
@@ -275,7 +282,7 @@ export const OrderManagement = () => {
                     <li key={index} className="flex justify-between items-center">
                       <span className="flex items-center gap-2">
                         <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-                        {item.quantity}x {item.menu_items?.name}
+                        {item.quantity}x {item.menu_items?.name || 'Item'}
                       </span>
                       <span className="font-medium">
                         R$ {item.total_price.toFixed(2)}

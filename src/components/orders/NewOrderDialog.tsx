@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -71,12 +70,11 @@ export const NewOrderDialog = ({ isOpen, onClose, onOrderCreated }: NewOrderDial
 
       if (error) throw error;
       
-      // Type-safe conversion from database response to MenuItem interface
       const menuItemsData: MenuItem[] = (data || []).map(item => ({
         id: item.id,
         name: item.name,
         description: item.description || '',
-        price: item.price,
+        price: Number(item.price) || 0,
         category: {
           name: item.categories?.name || 'Sem categoria'
         }
@@ -85,6 +83,11 @@ export const NewOrderDialog = ({ isOpen, onClose, onOrderCreated }: NewOrderDial
       setMenuItems(menuItemsData);
     } catch (error) {
       console.error('Error fetching menu items:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar cardápio",
+        variant: "destructive"
+      });
     }
   };
 
@@ -100,6 +103,11 @@ export const NewOrderDialog = ({ isOpen, onClose, onOrderCreated }: NewOrderDial
       setTables(data || []);
     } catch (error) {
       console.error('Error fetching tables:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar mesas",
+        variant: "destructive"
+      });
     }
   };
 
@@ -161,10 +169,8 @@ export const NewOrderDialog = ({ isOpen, onClose, onOrderCreated }: NewOrderDial
 
     setLoading(true);
     try {
-      // Generate order number
       const orderNumber = `PED${Date.now().toString().slice(-6)}`;
 
-      // Create order
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -180,7 +186,6 @@ export const NewOrderDialog = ({ isOpen, onClose, onOrderCreated }: NewOrderDial
 
       if (orderError) throw orderError;
 
-      // Create order items
       const { error: itemsError } = await supabase
         .from('order_items')
         .insert(
@@ -195,7 +200,6 @@ export const NewOrderDialog = ({ isOpen, onClose, onOrderCreated }: NewOrderDial
 
       if (itemsError) throw itemsError;
 
-      // Update table status
       await supabase
         .from('tables')
         .update({ status: 'occupied' })
@@ -239,34 +243,40 @@ export const NewOrderDialog = ({ isOpen, onClose, onOrderCreated }: NewOrderDial
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Cardápio</h3>
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {menuItems.map((item) => (
-                <Card key={item.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h4 className="font-medium">{item.name}</h4>
-                        <p className="text-sm text-gray-600 mb-2">{item.description}</p>
-                        <Badge variant="outline" className="text-xs">
-                          {item.category?.name}
-                        </Badge>
+              {menuItems.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Nenhum item disponível no cardápio</p>
+                </div>
+              ) : (
+                menuItems.map((item) => (
+                  <Card key={item.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h4 className="font-medium">{item.name}</h4>
+                          <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                          <Badge variant="outline" className="text-xs">
+                            {item.category.name}
+                          </Badge>
+                        </div>
+                        <div className="text-right ml-4">
+                          <p className="font-bold text-lg text-green-600">
+                            R$ {item.price.toFixed(2)}
+                          </p>
+                          <Button
+                            size="sm"
+                            onClick={() => addItemToOrder(item)}
+                            className="mt-2"
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Adicionar
+                          </Button>
+                        </div>
                       </div>
-                      <div className="text-right ml-4">
-                        <p className="font-bold text-lg text-green-600">
-                          R$ {item.price.toFixed(2)}
-                        </p>
-                        <Button
-                          size="sm"
-                          onClick={() => addItemToOrder(item)}
-                          className="mt-2"
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Adicionar
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
 

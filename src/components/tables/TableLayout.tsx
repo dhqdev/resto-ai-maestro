@@ -3,9 +3,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AddTableDialog } from './AddTableDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Users, Clock, DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
+import { Users, Clock, DollarSign, CheckCircle, AlertCircle, Plus, Trash2 } from 'lucide-react';
 
 interface Table {
   id: string;
@@ -31,6 +32,7 @@ export const TableLayout = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -47,12 +49,11 @@ export const TableLayout = () => {
 
       if (error) throw error;
       
-      // Type-safe conversion from database response to Table interface
       const tablesData: Table[] = (data || []).map(item => ({
         id: item.id,
         table_number: item.table_number,
         capacity: item.capacity,
-        status: item.status as Table['status'], // Type assertion for status
+        status: item.status as Table['status'],
         position_x: item.position_x,
         position_y: item.position_y
       }));
@@ -60,6 +61,11 @@ export const TableLayout = () => {
       setTables(tablesData);
     } catch (error) {
       console.error('Error fetching tables:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar mesas",
+        variant: "destructive"
+      });
     }
   };
 
@@ -82,6 +88,35 @@ export const TableLayout = () => {
       setOrders(data || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
+    }
+  };
+
+  const deleteTable = async (tableId: string) => {
+    setLoading(true);
+    
+    try {
+      const { error } = await supabase
+        .from('tables')
+        .delete()
+        .eq('id', tableId);
+
+      if (error) throw error;
+
+      await fetchTables();
+      toast({
+        title: "Sucesso",
+        description: "Mesa removida com sucesso!",
+      });
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('Error deleting table:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao remover mesa",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -157,14 +192,12 @@ export const TableLayout = () => {
     setLoading(true);
     
     try {
-      // Update orders to delivered
       await supabase
         .from('orders')
         .update({ status: 'delivered' })
         .eq('table_id', tableId)
         .in('status', ['pending', 'preparing', 'ready']);
 
-      // Update table to available
       await supabase
         .from('tables')
         .update({ status: 'available' })
@@ -199,7 +232,6 @@ export const TableLayout = () => {
         className="relative cursor-pointer transform hover:scale-105 transition-transform"
         onClick={() => handleTableClick(table)}
       >
-        {/* Table */}
         <div
           className={`
             ${isRound ? 'rounded-full' : 'rounded-lg'}
@@ -215,7 +247,6 @@ export const TableLayout = () => {
           </div>
         </div>
 
-        {/* Chairs */}
         <div className="absolute inset-0 pointer-events-none">
           {Array.from({ length: table.capacity }).map((_, index) => {
             const angle = (360 / table.capacity) * index;
@@ -237,14 +268,12 @@ export const TableLayout = () => {
           })}
         </div>
 
-        {/* Status badge */}
         <div className="absolute -top-2 -right-2">
           <Badge className={`${getStatusColor(table.status)} text-xs px-1 py-0`}>
             {getStatusIcon(table.status)}
           </Badge>
         </div>
 
-        {/* Order info */}
         {order && (
           <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-center">
             <div className="bg-white px-2 py-1 rounded shadow border">
@@ -265,6 +294,13 @@ export const TableLayout = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-2xl font-bold text-gray-900">Layout das Mesas</h2>
         <div className="flex gap-3">
+          <Button 
+            className="bg-gradient-to-r from-green-500 to-green-600"
+            onClick={() => setIsAddDialogOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Mesa
+          </Button>
           <Button variant="outline">
             📊 Relatório de Ocupação
           </Button>
@@ -303,7 +339,7 @@ export const TableLayout = () => {
               <div>
                 <p className="text-sm font-medium text-blue-800">Taxa de Ocupação</p>
                 <p className="text-2xl font-bold text-blue-900">
-                  {Math.round((occupiedTables.length / tables.length) * 100)}%
+                  {tables.length > 0 ? Math.round((occupiedTables.length / tables.length) * 100) : 0}%
                 </p>
               </div>
               <AlertCircle className="h-8 w-8 text-blue-600" />
@@ -329,9 +365,28 @@ export const TableLayout = () => {
       {/* Tables Layout */}
       <Card>
         <CardContent className="p-8">
-          <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-8 place-items-center min-h-96">
-            {tables.map(renderTable)}
-          </div>
+          {tables.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">🪑</div>
+              <h3 className="text-xl font-medium text-gray-900 mb-2">
+                Nenhuma mesa cadastrada
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Comece adicionando suas primeiras mesas
+              </p>
+              <Button 
+                className="bg-gradient-to-r from-green-500 to-green-600"
+                onClick={() => setIsAddDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Mesa
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-8 place-items-center min-h-96">
+              {tables.map(renderTable)}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -376,13 +431,23 @@ export const TableLayout = () => {
 
               <div className="flex gap-2 pt-4">
                 {selectedTable.status === 'available' && (
-                  <Button
-                    onClick={() => updateTableStatus(selectedTable.id, 'occupied')}
-                    disabled={loading}
-                    className="flex-1 bg-green-500 hover:bg-green-600"
-                  >
-                    Ocupar Mesa
-                  </Button>
+                  <>
+                    <Button
+                      onClick={() => updateTableStatus(selectedTable.id, 'occupied')}
+                      disabled={loading}
+                      className="flex-1 bg-green-500 hover:bg-green-600"
+                    >
+                      Ocupar Mesa
+                    </Button>
+                    <Button
+                      onClick={() => deleteTable(selectedTable.id)}
+                      disabled={loading}
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
                 )}
                 
                 {selectedTable.status === 'occupied' && (
@@ -429,6 +494,14 @@ export const TableLayout = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Add Table Dialog */}
+      <AddTableDialog
+        isOpen={isAddDialogOpen}
+        onClose={() => setIsAddDialogOpen(false)}
+        onTableAdded={fetchTables}
+        existingNumbers={tables.map(t => t.table_number)}
+      />
     </div>
   );
 };
