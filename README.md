@@ -1,6 +1,6 @@
 Welcome to your Project
 Project Info
-URL: Project Link
+URL: https://resto-ai-maestro.lovable.app/
 
 How can I edit this code?
 You have multiple options for editing your application.
